@@ -1,0 +1,43 @@
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Updater, CommandHandler, CallbackContext
+import requests
+
+# 🔑 Dein BotFather API Token
+TELEGRAM_API_TOKEN = '7729276817:AAGi1fDFOy_ntNFhDmmtyOxVA9ZX5yWsMU0'
+
+# 📌 Token-Contract-Adresse (COAI)
+TOKEN_ADDRESS = '0x22491EdfafDC9A635085a364ea336eD79dF54dA3'
+
+# ✅ Funktion um Token-Daten zu holen
+def get_token_info():
+    url = f'https://api.dexscreener.io/latest/dex/tokens/{TOKEN_ADDRESS}'
+    response = requests.get(url)
+    data = response.json()
+
+    pair = data['pairs'][0]
+    price = pair['priceUsd']
+    liquidity = pair['liquidity']['usd']
+    volume = pair['volume']['h24']
+
+    return f"💰 *Price:* ${price}\n📊 *Liquidity:* ${liquidity}\n📈 *24h Volume:* ${volume}\n🔗 *Contract:* `{TOKEN_ADDRESS}`"
+
+# 👋 /start Command
+def start(update: Update, context: CallbackContext):
+    update.message.reply_text('👋 Welcome Agent! Type /price to get current COAI token info.')
+
+# 💵 /price Command
+def price(update: Update, context: CallbackContext):
+    info = get_token_info()
+    keyboard = [
+        [InlineKeyboardButton("View on DexScreener", url=f"https://dexscreener.io/base/{TOKEN_ADDRESS}")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    update.message.reply_text(info, reply_markup=reply_markup, parse_mode='Markdown')
+
+# 🚀 Bot starten
+updater = Updater(TELEGRAM_API_TOKEN)
+dp = updater.dispatcher
+dp.add_handler(CommandHandler('start', start))
+dp.add_handler(CommandHandler('price', price))
+updater.start_polling()
+updater.idle()
