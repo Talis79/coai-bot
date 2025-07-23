@@ -62,7 +62,8 @@ def home():
 @app_server.route('/webhook', methods=['POST'])
 def webhook():
     update = Update.de_json(request.get_json(force=True), bot_app.bot)
-    asyncio.create_task(bot_app.process_update(update))
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(bot_app.process_update(update))
     return "OK", 200
 
 # 🚀 Bot starten
