@@ -1,6 +1,7 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 import requests
+import os
 
 # 🔑 Dein BotFather API Token
 TELEGRAM_API_TOKEN = '7729276817:AAGi1fDFOy_ntNFhDmmtyOxVA9ZX5yWsMU0'
@@ -25,7 +26,7 @@ def get_token_info():
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text('👋 Welcome Agent! Type /ca to get current COAI token info.')
 
-# 💵 /ca Command (statt /price)
+# 💵 /ca Command
 async def ca(update: Update, context: ContextTypes.DEFAULT_TYPE):
     info = get_token_info()
     keyboard = [
@@ -47,16 +48,28 @@ async def main():
     app = ApplicationBuilder().token(TELEGRAM_API_TOKEN).build()
 
     app.add_handler(CommandHandler('start', start))
-    app.add_handler(CommandHandler('ca', ca))  # geändert von 'price' zu 'ca'
+    app.add_handler(CommandHandler('ca', ca))
     app.add_handler(CommandHandler('marketcap', marketcap))
     app.add_handler(CommandHandler('welcome', welcome))
 
-    print("🤖 Bot is running...")
-    await app.run_polling()
+    # Render-Webservice Settings
+    port = int(os.environ.get('PORT', 8443))
+    webhook_url = f"https://{os.environ.get('RENDER_EXTERNAL_HOSTNAME')}/webhook"
+
+    print(f"🤖 Setting webhook to: {webhook_url}")
+
+    await app.bot.set_webhook(webhook_url)
+    await app.run_webhook(
+        listen="0.0.0.0",
+        port=port,
+        url_path="webhook"
+    )
 
 if __name__ == '__main__':
     import nest_asyncio
     import asyncio
-    nest_asyncio.apply()
 
-    asyncio.run(main())
+    nest_asyncio.apply()
+    loop = asyncio.get_event_loop()
+    loop.create_task(main())
+    loop.run_forever()
