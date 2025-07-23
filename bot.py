@@ -85,8 +85,9 @@ async def main():
     await app.run_webhook(
     listen="0.0.0.0",
     port=port,
-    path="/webhook"
+    url_path="webhook"
 )
+
 
 if __name__ == '__main__':
     import nest_asyncio
