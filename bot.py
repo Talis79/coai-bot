@@ -62,7 +62,7 @@ def home():
 @app_server.route('/webhook', methods=['POST'])
 def webhook():
     update = Update.de_json(request.get_json(force=True), bot_app.bot)
-    asyncio.run(bot_app.process_update(update))
+    asyncio.create_task(bot_app.process_update(update))
     return "OK", 200
 
 # 🚀 Bot starten
@@ -82,6 +82,7 @@ async def main():
 
     print(f"🤖 Setting webhook to: {webhook_url}")
 
+    # INITIALIZE BOT + Set Webhook
     await bot_app.initialize()
     await bot_app.bot.set_webhook(webhook_url)
 
@@ -89,8 +90,7 @@ async def main():
     threading.Thread(target=lambda: app_server.run(host='0.0.0.0', port=port)).start()
 
     await bot_app.start()
-    await bot_app.updater.start_polling()
-    await bot_app.updater.idle()
+    print("🤖 Telegram Bot is running and ready for Webhooks.")
 
 if __name__ == '__main__':
     nest_asyncio.apply()
