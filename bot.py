@@ -20,19 +20,24 @@ def get_token_info():
     data = response.json()
 
     pair = data['pairs'][0]
-    price = pair['priceUsd']
-    liquidity = pair['liquidity']['usd']
-    volume = pair['volume']['h24']
+    price = pair.get('priceUsd', 'N/A')
+    liquidity = pair['liquidity'].get('usd', 'N/A')
+    volume = pair['volume'].get('h24', 'N/A')
 
-    # Marketcap Dummy-Rechnung (Preis * zirkulierende Supply)
-    circulating_supply = 1000000  # 📝 Setze hier die echte Supply ein
-    marketcap = float(price) * circulating_supply
+    # Marketcap Berechnung (mit Error-Handling)
+    circulating_supply = 1000000  # 📝 Setze hier echten Supply ein
+    try:
+        price_float = float(price)
+        marketcap = price_float * circulating_supply
+        marketcap_str = f"${marketcap:,.2f}"
+    except (ValueError, TypeError):
+        marketcap_str = "N/A"
 
     return (
         f"💰 *Price:* ${price}\n"
         f"📊 *Liquidity:* ${liquidity}\n"
         f"📈 *24h Volume:* ${volume}\n"
-        f"🏦 *Marketcap:* ${marketcap:,.2f}\n"
+        f"🏦 *Marketcap:* {marketcap_str}\n"
         f"🔗 *Contract:* `{TOKEN_ADDRESS}`"
     )
 
@@ -40,7 +45,7 @@ def get_token_info():
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text('👋 Welcome Agent! Type /ca to get current COAI token info.')
 
-# 💵 /ca Command (mit Marketcap integriert)
+# 💵 /ca Command
 async def ca(update: Update, context: ContextTypes.DEFAULT_TYPE):
     info = get_token_info()
     keyboard = [
@@ -49,7 +54,7 @@ async def ca(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(info, reply_markup=reply_markup, parse_mode='Markdown')
 
-# Flask App für Render Dummy Server und Webhook
+# ✅ Flask Server
 app_server = Flask(__name__)
 
 @app_server.route('/')
@@ -59,9 +64,10 @@ def home():
 @app_server.route('/webhook', methods=['POST'])
 def webhook():
     update = Update.de_json(request.get_json(force=True), bot_app.bot)
-    asyncio.create_task(bot_app.process_update(update))
-    loop = asyncio.get_event_loop()
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     loop.run_until_complete(bot_app.process_update(update))
+    loop.close()
     return "OK", 200
 
 # 🚀 Bot starten
@@ -72,18 +78,15 @@ async def main():
     bot_app.add_handler(CommandHandler('start', start))
     bot_app.add_handler(CommandHandler('ca', ca))
 
-    # Render-Webservice Settings
     port = int(os.environ.get('PORT', 8443))
     external_hostname = os.environ.get('RENDER_EXTERNAL_HOSTNAME', 'coai-bot-3.onrender.com')
     webhook_url = f"https://{external_hostname}/webhook"
 
     print(f"🤖 Setting webhook to: {webhook_url}")
 
-    # INITIALIZE BOT + Set Webhook
     await bot_app.initialize()
     await bot_app.bot.set_webhook(webhook_url)
 
-    # Start Flask Dummy HTTP Server
     threading.Thread(target=lambda: app_server.run(host='0.0.0.0', port=port)).start()
 
     await bot_app.start()
