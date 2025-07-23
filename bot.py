@@ -61,19 +61,19 @@ def home():
 
 @app_server.route('/webhook', methods=['POST'])
 def webhook():
-    update = Update.de_json(request.get_json(force=True), app.bot)
-    asyncio.run(app.process_update(update))
+    update = Update.de_json(request.get_json(force=True), bot_app.bot)
+    asyncio.run(bot_app.process_update(update))
     return "OK", 200
 
 # 🚀 Bot starten
 async def main():
-    global app
-    app = ApplicationBuilder().token(TELEGRAM_API_TOKEN).build()
+    global bot_app
+    bot_app = ApplicationBuilder().token(TELEGRAM_API_TOKEN).build()
 
-    app.add_handler(CommandHandler('start', start))
-    app.add_handler(CommandHandler('ca', ca))
-    app.add_handler(CommandHandler('marketcap', marketcap))
-    app.add_handler(CommandHandler('welcome', welcome))
+    bot_app.add_handler(CommandHandler('start', start))
+    bot_app.add_handler(CommandHandler('ca', ca))
+    bot_app.add_handler(CommandHandler('marketcap', marketcap))
+    bot_app.add_handler(CommandHandler('welcome', welcome))
 
     # Render-Webservice Settings
     port = int(os.environ.get('PORT', 8443))
@@ -82,15 +82,15 @@ async def main():
 
     print(f"🤖 Setting webhook to: {webhook_url}")
 
-    await app.bot.set_webhook(webhook_url)
+    await bot_app.initialize()
+    await bot_app.bot.set_webhook(webhook_url)
 
     # Start Flask Dummy HTTP Server
     threading.Thread(target=lambda: app_server.run(host='0.0.0.0', port=port)).start()
 
-    # Keep the Telegram Bot running
-    await app.start()
-    await app.updater.start_polling()
-    await app.updater.idle()
+    await bot_app.start()
+    await bot_app.updater.start_polling()
+    await bot_app.updater.idle()
 
 if __name__ == '__main__':
     nest_asyncio.apply()
