@@ -1,19 +1,11 @@
-from flask import Flask
-
-# Dummy HTTP server for Render
-app_server = Flask(__name__)
-
-@app_server.route('/')
-def home():
-    return "🤖 COAI Telegram Bot is running!"
-
-def run_http_server():
-    port = int(os.environ.get('PORT', 5000))
-    app_server.run(host='0.0.0.0', port=port)
+from flask import Flask, request
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 import requests
 import os
+import threading
+import nest_asyncio
+import asyncio
 
 # 🔑 Dein BotFather API Token
 TELEGRAM_API_TOKEN = '7729276817:AAGi1fDFOy_ntNFhDmmtyOxVA9ZX5yWsMU0'
@@ -32,7 +24,12 @@ def get_token_info():
     liquidity = pair['liquidity']['usd']
     volume = pair['volume']['h24']
 
-    return f"💰 *Price:* ${price}\n📊 *Liquidity:* ${liquidity}\n📈 *24h Volume:* ${volume}\n🔗 *Contract:* `{TOKEN_ADDRESS}`"
+    return (
+        f"💰 *Price:* ${price}\n"
+        f"📊 *Liquidity:* ${liquidity}\n"
+        f"📈 *24h Volume:* ${volume}\n"
+        f"🔗 *Contract:* `{TOKEN_ADDRESS}`"
+    )
 
 # 👋 /start Command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -55,8 +52,22 @@ async def marketcap(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🔒 Access granted. Welcome Agent.")
 
+# Flask App für Render Dummy Server und Webhook
+app_server = Flask(__name__)
+
+@app_server.route('/')
+def home():
+    return "✅ COAI Telegram Bot is alive and listening for Telegram Webhooks!"
+
+@app_server.route('/webhook', methods=['POST'])
+def webhook():
+    update = Update.de_json(request.get_json(force=True), app.bot)
+    asyncio.run(app.process_update(update))
+    return "OK", 200
+
 # 🚀 Bot starten
 async def main():
+    global app
     app = ApplicationBuilder().token(TELEGRAM_API_TOKEN).build()
 
     app.add_handler(CommandHandler('start', start))
@@ -66,29 +77,21 @@ async def main():
 
     # Render-Webservice Settings
     port = int(os.environ.get('PORT', 8443))
-    webhook_url = f"https://{os.environ.get('RENDER_EXTERNAL_HOSTNAME')}/webhook"
+    external_hostname = os.environ.get('RENDER_EXTERNAL_HOSTNAME', 'coai-bot-3.onrender.com')
+    webhook_url = f"https://{external_hostname}/webhook"
 
     print(f"🤖 Setting webhook to: {webhook_url}")
 
     await app.bot.set_webhook(webhook_url)
-    await app.run_webhook(
-        listen="0.0.0.0",
-        port=port,
-        url_path="webhook"
-    )
 
-import threading
+    # Start Flask Dummy HTTP Server
+    threading.Thread(target=lambda: app_server.run(host='0.0.0.0', port=port)).start()
+
+    # Keep the Telegram Bot running
+    await app.start()
+    await app.updater.start_polling()
+    await app.updater.idle()
 
 if __name__ == '__main__':
-    import nest_asyncio
-    import asyncio
-
     nest_asyncio.apply()
-
-    # Start dummy HTTP server in a separate thread
-    threading.Thread(target=run_http_server).start()
-
-    # Start Telegram Bot (Webhook)
-    loop = asyncio.get_event_loop()
-    loop.create_task(main())
-    loop.run_forever()
+    asyncio.run(main())
