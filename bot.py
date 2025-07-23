@@ -1,14 +1,13 @@
+import os
 from flask import Flask, request
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 import requests
-import os
 import threading
 import nest_asyncio
 import asyncio
 
-# 🔑 Dein BotFather API Token
-import os
+# 🔑 Telegram BotFather API Token jetzt über Umgebungsvariable:
 TELEGRAM_API_TOKEN = os.environ.get('TELEGRAM_API_TOKEN')
 
 # 📌 Token-Contract-Adresse (COAI)
@@ -30,7 +29,7 @@ def get_token_info():
     price = pair.get('priceUsd', 'N/A')
     liquidity = pair.get('liquidity', {}).get('usd', 'N/A')
     volume = pair.get('volume', {}).get('h24', 'N/A')
-
+    
     try:
         price_float = float(price)
         marketcap = price_float * circulating_supply
@@ -50,7 +49,7 @@ def get_token_info():
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text('👋 Welcome Agent! Type /ca to get current COAI token info.')
 
-# 💵 /ca Command (enthält jetzt auch Marketcap)
+# 💵 /ca Command (enthält auch Marketcap)
 async def ca(update: Update, context: ContextTypes.DEFAULT_TYPE):
     info = get_token_info()
     keyboard = [
