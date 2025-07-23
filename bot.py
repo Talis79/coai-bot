@@ -8,7 +8,8 @@ import nest_asyncio
 import asyncio
 
 # 🔑 Dein BotFather API Token
-TELEGRAM_API_TOKEN = '7729276817:AAGi1fDFOy_ntNFhDmmtyOxVA9ZX5yWsMU0'
+import os
+TELEGRAM_API_TOKEN = os.environ.get('TELEGRAM_API_TOKEN')
 
 # 📌 Token-Contract-Adresse (COAI)
 TOKEN_ADDRESS = '0x22491EdfafDC9A635085a364ea336ed79df54da3'
