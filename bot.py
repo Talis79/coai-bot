@@ -30,9 +30,6 @@ def get_token_info():
     liquidity = pair.get('liquidity', {}).get('usd', 'N/A')
     volume = pair.get('volume', {}).get('h24', 'N/A')
 
-    # Circulating Supply für Marketcap
-    circulating_supply = 1000000  # <- <---- HIER ggf. anpassen!
-
     try:
         price_float = float(price)
         marketcap = price_float * circulating_supply
