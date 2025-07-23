@@ -83,10 +83,10 @@ async def main():
 
     await app.bot.set_webhook(url=webhook_url)
     await app.run_webhook(
-        listen="0.0.0.0",
-        port=port,
-        webhook_path=webhook_path
-    )
+    listen="0.0.0.0",
+    port=port,
+    path="/webhook"
+)
 
 if __name__ == '__main__':
     import nest_asyncio
