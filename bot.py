@@ -1,3 +1,15 @@
+from flask import Flask
+
+# Dummy HTTP server for Render
+app_server = Flask(__name__)
+
+@app_server.route('/')
+def home():
+    return "🤖 COAI Telegram Bot is running!"
+
+def run_http_server():
+    port = int(os.environ.get('PORT', 5000))
+    app_server.run(host='0.0.0.0', port=port)
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 import requests
@@ -65,11 +77,18 @@ async def main():
         url_path="webhook"
     )
 
+import threading
+
 if __name__ == '__main__':
     import nest_asyncio
     import asyncio
 
     nest_asyncio.apply()
+
+    # Start dummy HTTP server in a separate thread
+    threading.Thread(target=run_http_server).start()
+
+    # Start Telegram Bot (Webhook)
     loop = asyncio.get_event_loop()
     loop.create_task(main())
     loop.run_forever()
