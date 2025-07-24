@@ -1,47 +1,68 @@
-import os
-from flask import Flask, request
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from web3 import Web3
 import requests
-import threading
-import nest_asyncio
-import asyncio
 
-# 🔑 Telegram BotFather API Token jetzt über Umgebungsvariable:
-TELEGRAM_API_TOKEN = os.environ.get('TELEGRAM_API_TOKEN')
+# 🔑 Dein BotFather API Token
+TELEGRAM_API_TOKEN = '7729276817:AAGi1fDFOy_ntNFhDmmtyOxVA9ZX5yWsMU0'
 
 # 📌 Token-Contract-Adresse (COAI)
 TOKEN_ADDRESS = '0x22491EdfafDC9A635085a364ea336ed79df54da3'
 
-# ✅ Funktion um Token-Daten zu holen
-def get_token_info():
-    url = f'https://api.dexscreener.io/latest/dex/tokens/{TOKEN_ADDRESS}'
-    try:
-        response = requests.get(url)
-        data = response.json()
-    except Exception:
-        return "❌ API-Fehler – keine gültigen Daten erhalten."
+# 📡 Base RPC URL (Public Endpoint)
+BASE_RPC_URL = 'https://mainnet.base.org'
 
-    if not data or 'pairs' not in data or not data['pairs']:
-        return "❌ Token-Info konnte nicht geladen werden. Token möglicherweise nicht gelistet oder API down."
+# 📖 Minimal ABI für totalSupply() und decimals()
+ERC20_ABI = [
+    {
+        "constant": True,
+        "inputs": [],
+        "name": "totalSupply",
+        "outputs": [{"name": "", "type": "uint256"}],
+        "type": "function"
+    },
+    {
+        "constant": True,
+        "inputs": [],
+        "name": "decimals",
+        "outputs": [{"name": "", "type": "uint8"}],
+        "type": "function"
+    }
+]
+
+# 🔗 Web3 Initialisierung
+web3 = Web3(Web3.HTTPProvider(BASE_RPC_URL))
+
+# ✅ Funktion um Token-Daten zu holen (on-chain + API)
+def get_token_info():
+    # DexScreener API
+    url = f'https://api.dexscreener.io/latest/dex/tokens/{TOKEN_ADDRESS}'
+    response = requests.get(url)
+    data = response.json()
 
     pair = data['pairs'][0]
-    price = pair.get('priceUsd', 'N/A')
-    liquidity = pair.get('liquidity', {}).get('usd', 'N/A')
-    volume = pair.get('volume', {}).get('h24', 'N/A')
-    
+    price = pair['priceUsd']
+    liquidity = pair['liquidity']['usd']
+    volume = pair['volume']['h24']
+    marketcap = pair['fdv']
+
+    # Total Supply und Decimals on-chain abfragen
     try:
-        price_float = float(price)
-        marketcap = price_float * circulating_supply
-        marketcap_str = f"${marketcap:,.2f}"
-    except (ValueError, TypeError):
-        marketcap_str = "N/A"
+        contract = web3.eth.contract(address=Web3.to_checksum_address(TOKEN_ADDRESS), abi=ERC20_ABI)
+        total_supply_raw = contract.functions.totalSupply().call()
+        decimals = contract.functions.decimals().call()
+        total_supply = total_supply_raw / (10 ** decimals)
+        total_supply_formatted = f"{total_supply:,.0f}"  # Kommaformatierung
+    except Exception as e:
+        print(f"❌ Error fetching on-chain data: {e}")
+        total_supply_formatted = "Unknown"
 
     return (
         f"💰 *Price:* ${price}\n"
         f"📊 *Liquidity:* ${liquidity}\n"
         f"📈 *24h Volume:* ${volume}\n"
-        f"🏦 *Marketcap:* {marketcap_str}\n"
+        f"🏦 *MarketCap:* ${marketcap}\n"
+        f"📦 *Total Supply:* {total_supply_formatted}\n"
         f"🔗 *Contract:* `{TOKEN_ADDRESS}`"
     )
 
@@ -49,7 +70,7 @@ def get_token_info():
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text('👋 Welcome Agent! Type /ca to get current COAI token info.')
 
-# 💵 /ca Command (enthält auch Marketcap)
+# 💵 /ca Command
 async def ca(update: Update, context: ContextTypes.DEFAULT_TYPE):
     info = get_token_info()
     keyboard = [
@@ -58,48 +79,16 @@ async def ca(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(info, reply_markup=reply_markup, parse_mode='Markdown')
 
-# Flask App für Render Dummy Server und Webhook
-app_server = Flask(__name__)
-
-@app_server.route('/')
-def home():
-    return "✅ COAI Telegram Bot is alive and listening for Telegram Webhooks!"
-
-@app_server.route('/webhook', methods=['POST'])
-def webhook():
-    update = Update.de_json(request.get_json(force=True), bot_app.bot)
-    # Fehler vermeiden: Eventloop sauber behandeln!
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.run_until_complete(bot_app.process_update(update))
-    loop.close()
-    return "OK", 200
-
 # 🚀 Bot starten
 async def main():
-    global bot_app
-    bot_app = ApplicationBuilder().token(TELEGRAM_API_TOKEN).build()
-
-    bot_app.add_handler(CommandHandler('start', start))
-    bot_app.add_handler(CommandHandler('ca', ca))
-
-    # Render-Webservice Settings
-    port = int(os.environ.get('PORT', 10000))
-    external_hostname = os.environ.get('RENDER_EXTERNAL_HOSTNAME', 'coai-bot-3.onrender.com')
-    webhook_url = f"https://{external_hostname}/webhook"
-
-    print(f"🤖 Setting webhook to: {webhook_url}")
-
-    # INITIALIZE BOT + Set Webhook
-    await bot_app.initialize()
-    await bot_app.bot.set_webhook(webhook_url)
-
-    # Start Flask Dummy HTTP Server
-    threading.Thread(target=lambda: app_server.run(host='0.0.0.0', port=port)).start()
-
-    await bot_app.start()
-    print("🤖 Telegram Bot is running and ready for Webhooks.")
+    app = ApplicationBuilder().token(TELEGRAM_API_TOKEN).build()
+    app.add_handler(CommandHandler('start', start))
+    app.add_handler(CommandHandler('ca', ca))
+    print("🤖 Bot is running...")
+    await app.run_polling()
 
 if __name__ == '__main__':
+    import nest_asyncio
+    import asyncio
     nest_asyncio.apply()
     asyncio.run(main())
