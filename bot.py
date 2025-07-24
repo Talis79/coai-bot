@@ -12,23 +12,7 @@ TOKEN_ADDRESS = '0x22491EdfafDC9A635085a364ea336ed79df54da3'
 # 📡 Base RPC URL (Public Endpoint)
 BASE_RPC_URL = 'https://mainnet.base.org'
 
-# 📖 Minimal ABI für totalSupply() und decimals()
-ERC20_ABI = [
-    {
-        "constant": True,
-        "inputs": [],
-        "name": "totalSupply",
-        "outputs": [{"name": "", "type": "uint256"}],
-        "type": "function"
-    },
-    {
-        "constant": True,
-        "inputs": [],
-        "name": "decimals",
-        "outputs": [{"name": "", "type": "uint8"}],
-        "type": "function"
-    }
-]
+
 
 # 🔗 Web3 Initialisierung
 web3 = Web3(Web3.HTTPProvider(BASE_RPC_URL))
@@ -62,7 +46,6 @@ def get_token_info():
         f"📊 *Liquidity:* ${liquidity}\n"
         f"📈 *24h Volume:* ${volume}\n"
         f"🏦 *MarketCap:* ${marketcap}\n"
-        f"📦 *Total Supply:* {total_supply_formatted}\n"
         f"🔗 *Contract:* `{TOKEN_ADDRESS}`"
     )
 
